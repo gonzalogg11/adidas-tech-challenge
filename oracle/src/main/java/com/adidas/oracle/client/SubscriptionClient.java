@@ -1,5 +1,6 @@
 package com.adidas.oracle.client;
 
+import com.adidas.oracle.dto.ApiResponseDTO;
 import com.adidas.oracle.dto.CreateSubscriptionDTO;
 import com.adidas.oracle.dto.SubscriptionDTO;
 import com.adidas.oracle.util.HTTPUtil;
@@ -12,7 +13,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -26,25 +27,27 @@ public class SubscriptionClient {
     @Value("${subscription.api.url:http://subscription/v0/subscription}")
     private String subscriptionApiUrl;
 
-    public void sendEmail(String email) {
-        this.restTemplate.postForLocation(subscriptionApiUrl + "email?email=" + email, null);
-    }
-
     public Long createSubscription(CreateSubscriptionDTO createSubscriptionDTO) {
         HttpEntity<Object> httpEntity = HTTPUtil.getObjectHttpEntity(createSubscriptionDTO);
-        return this.restTemplate.postForObject(subscriptionApiUrl, httpEntity, Long.class);
+        ApiResponseDTO response = this.restTemplate.postForObject(subscriptionApiUrl, httpEntity, ApiResponseDTO.class);
+        Integer id = (Integer) Objects.requireNonNull(response).getResponse();
+        return id.longValue();
     }
 
     public List<SubscriptionDTO> getSubscriptions(List<Long> subscriptionIds) {
-        UriComponentsBuilder uriComponentsBuilder = UriComponentsBuilder.fromHttpUrl(subscriptionApiUrl);
+        UriComponentsBuilder uri = UriComponentsBuilder.fromHttpUrl(subscriptionApiUrl);
         if (!CollectionUtils.isEmpty(subscriptionIds)) {
-            uriComponentsBuilder.queryParam("ids", subscriptionIds);
+            uri.queryParam("ids", subscriptionIds);
         }
-        return Arrays.asList(Objects.requireNonNull(this.restTemplate.getForObject(subscriptionApiUrl, SubscriptionDTO[].class)));
+        ApiResponseDTO response = this.restTemplate.getForObject(uri.toUriString(), ApiResponseDTO.class);
+        if (response != null && response.getResponse() != null) {
+            return (List<SubscriptionDTO>) response.getResponse();
+        }
+        return Collections.emptyList();
     }
 
     public void cancelSubscription(Long subscriptionId) {
         HttpEntity<Object> httpEntity = HTTPUtil.getObjectHttpEntity(null);
-        this.restTemplate.postForLocation(subscriptionApiUrl + String.format("/%s/cancel", subscriptionId), httpEntity);
+        this.restTemplate.delete(subscriptionApiUrl + String.format("/%s", subscriptionId), httpEntity);
     }
 }

@@ -8,8 +8,8 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="notification" />
-        <module name="subscription" />
         <module name="oracle" />
+        <module name="subscription" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>

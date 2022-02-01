@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle
+  labels:
+      run: oracle
+spec:
+  selector:
+    matchLabels:
+      run: oracle
+  strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: oracle
+    spec:
+      containers:
+      - image: url
+        imagePullPolicy: Always
+        name: oracle
+        ports:
+        - containerPort: 8082
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8082
+          initialDelaySeconds: 60
+          timeoutSeconds: 2
+          periodSeconds: 1
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8082
+          initialDelaySeconds: 60
+          timeoutSeconds: 2
+          periodSeconds: 5
+          failureThreshold: 3
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 120

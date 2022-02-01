@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification
+  labels:
+      run: notification
+spec:
+  selector:
+    matchLabels:
+      run: notification
+  strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: notification
+    spec:
+      containers:
+      - image: url
+        imagePullPolicy: Always
+        name: notification
+        ports:
+        - containerPort: 8081
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 60
+          timeoutSeconds: 2
+          periodSeconds: 1
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 60
+          timeoutSeconds: 2
+          periodSeconds: 5
+          failureThreshold: 3
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 120

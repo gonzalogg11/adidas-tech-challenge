@@ -3,14 +3,18 @@ package com.adidas.subscription.service;
 import com.adidas.subscription.dto.CreateSubscriptionDTO;
 import com.adidas.subscription.dto.SubscriptionDTO;
 import com.adidas.subscription.entity.Subscription;
+import com.adidas.subscription.exception.SubscriptionAlreadyExistsException;
+import com.adidas.subscription.exception.SubscriptionNotFoundException;
 import com.adidas.subscription.mapper.SubscriptionMapper;
 import com.adidas.subscription.repository.SubscriptionRepository;
+import com.adidas.subscription.util.EmailOperation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
+import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -25,12 +29,14 @@ public class SubscriptionService {
 	@Autowired
 	private NotificationService notificationService;
 
-	public Subscription saveSubscription(CreateSubscriptionDTO createSubscriptionDTO) {
-		checkMandatoryFields(createSubscriptionDTO);
+	public Subscription saveSubscription(CreateSubscriptionDTO createSubscriptionDTO) throws SubscriptionAlreadyExistsException {
+		checkIfSubscriptionAlreadyExists(createSubscriptionDTO);
 		Subscription subscription = subscriptionMapper.mapObject(createSubscriptionDTO, Subscription.class);
+		subscription.setCreated(new Date());
 		Subscription subscriptionSaved = subscriptionRepository.save(subscription);
 
-		CompletableFuture.runAsync(() -> notificationService.sendEmail(subscriptionSaved.getEmail()));
+		CompletableFuture.runAsync(() -> notificationService.sendEmail(subscriptionSaved.getEmail(),
+				EmailOperation.SUBSCRIPTION_ACTIVATED));
 
 		return subscriptionSaved;
 	}
@@ -46,18 +52,20 @@ public class SubscriptionService {
 		return subscriptionMapper.mapList(subscriptions, SubscriptionDTO.class);
 	}
 
-	public void cancelSubscription(Long subscriptionId) {
-		Subscription subscription = subscriptionRepository.getById(subscriptionId);
-		if (subscription == null) {
-			throw new NullPointerException();
-		}
-		subscription.setConsent(false);
-		subscriptionRepository.save(subscription);
+	public void cancelSubscription(Long subscriptionId) throws SubscriptionNotFoundException {
+		Optional<Subscription> optional = subscriptionRepository.findById(subscriptionId);
+		if (!optional.isPresent()) throw new SubscriptionNotFoundException(subscriptionId);
+		subscriptionRepository.delete(optional.get());
+
+		CompletableFuture.runAsync(() -> notificationService.sendEmail(optional.get().getEmail(),
+				EmailOperation.SUBSCRIPTION_CANCELED));
 	}
 
-	private void checkMandatoryFields(CreateSubscriptionDTO createSubscriptionDTO) {
-		if (!StringUtils.hasText(createSubscriptionDTO.getEmail()) || createSubscriptionDTO.getBirthdate() == null ||
-				createSubscriptionDTO.getConsent() == null && createSubscriptionDTO.getNewsletterId() == null)
-			throw new RuntimeException();
+	private void checkIfSubscriptionAlreadyExists(CreateSubscriptionDTO createSubscriptionDTO) throws SubscriptionAlreadyExistsException {
+		Subscription existingSubscription = subscriptionRepository.findByEmail(createSubscriptionDTO.getEmail());
+		if (existingSubscription != null) {
+			throw new SubscriptionAlreadyExistsException(createSubscriptionDTO.getEmail());
+		}
 	}
+
 }

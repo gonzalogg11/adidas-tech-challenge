@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-service
+  annotations:
+    alb.ingress.kubernetes.io/target-type: ip
+  labels:
+    run: oracle-service
+spec:
+  ports:
+  - port: 80
+    targetPort: 8082
+    protocol: TCP
+  type: NodePort
+  selector:
+    run: oracle
